@@ -2,9 +2,9 @@
 <launch>
 
   <arg name="node_name" default="gravity_compensation"/>
-  <arg name="calib_data_file" default="$(env HOME)/.ros/ft_calib/ft_calib_data.yaml"/>
-  <arg name="ft_raw" default="/ft_sensor/ft_raw"/>
-  <arg name="imu" default="/imu/data"/>
+  <arg name="calib_data_file" default="/home/pacman/Projects/catkin_ws/src/grasp_estimator/config/vito_left_arm_ft_calib_data.yaml"/>
+  <arg name="ft_raw" default="/left_ft_sensor/left/force_torque_sensor_filtered"/>
+  <arg name="imu" default="/left_ft_sensor/left/IMU_filtered/"/>
   <arg name="loop_rate" default="1000.0"/>
   <arg name="ns" default="/ft_sensor"/>
   <arg name="gripper_com_child_frame_id" default="gripper_com"/>

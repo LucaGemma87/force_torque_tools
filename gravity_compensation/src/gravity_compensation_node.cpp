@@ -262,6 +262,7 @@ public:
 
 		geometry_msgs::WrenchStamped ft_compensated;
 		m_g_comp->Compensate(ft_zeroed, m_imu, ft_compensated);
+// 		ROS_INFO("Mass = %g",(double)(sqrt(pow(ft_compensated.wrench.force.x,2)+pow(ft_compensated.wrench.force.y,2)+pow(ft_compensated.wrench.force.z,2)))/(double)9.822);
 		topicPub_ft_compensated_.publish(ft_compensated);
 	}
 

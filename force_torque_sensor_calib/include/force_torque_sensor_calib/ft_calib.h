@@ -77,6 +77,8 @@ public:
 	// All expressed in the FT sensor frame
 	virtual Eigen::VectorXd getCalib();
 
+	ros::Publisher pub_cog_;
+
 
 
 protected:
@@ -89,7 +91,9 @@ protected:
 
 	// measurement matrix based on "On-line Rigid Object Recognition and Pose Estimation
 	//  Based on Inertial Parameters", D. Kubus, T. Kroger, F. Wahl, IROS 2008
-    virtual Eigen::MatrixXd getMeasurementMatrix(const geometry_msgs::Vector3Stamped &gravity);
+        virtual Eigen::MatrixXd getMeasurementMatrix(const geometry_msgs::Vector3Stamped &gravity);
+
+    //pub_cog_ = nh_.advertise<visualization_msgs::Marker>(nh_.resolveName("/left_hand/cog_hand_server_"),5);
 
 };
 }

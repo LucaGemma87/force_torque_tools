@@ -49,6 +49,9 @@
 #include <force_torque_sensor_calib/ft_calib.h>
 #include <eigen3/Eigen/Core>
 
+// codice mio
+
+#include <visualization_msgs/Marker.h>
 using namespace Calibration;
 
 
@@ -61,7 +64,9 @@ public:
 	ros::AsyncSpinner *spinner;
 	ros::Subscriber topicSub_ft_raw_;
 	ros::Subscriber topicSub_Accelerometer_;
-
+    ros::Publisher vis_pub;
+    unsigned int m_pose_counter;
+    move_group_interface::MoveGroup *m_group;
 	FTCalibNode()
 	{
 		n_ = ros::NodeHandle("~");
@@ -69,9 +74,12 @@ public:
 		spinner->start();
 
 
+        
+		// topicSub_ft_raw_ = n_.subscribe("ft_raw", 1, &FTCalibNode::topicCallback_ft_raw, this);
+		topicSub_ft_raw_ = n_.subscribe("/left_ft_sensor/left/force_torque_sensor_filtered", 1, &FTCalibNode::topicCallback_ft_raw, this);
+		//topicSub_Accelerometer_ = n_.subscribe("imu", 1, &FTCalibNode::topicCallback_imu, this);
+		topicSub_Accelerometer_ = n_.subscribe("/left_ft_sensor/left/IMU_filtered", 1, &FTCalibNode::topicCallback_imu, this);
 
-		topicSub_ft_raw_ = n_.subscribe("ft_raw", 1, &FTCalibNode::topicCallback_ft_raw, this);
-		topicSub_Accelerometer_ = n_.subscribe("imu", 1, &FTCalibNode::topicCallback_imu, this);
 
 		m_pose_counter = 0;
 		m_ft_counter = 0;
@@ -88,10 +96,10 @@ public:
 	~FTCalibNode()
 	{
 		saveCalibData();
-		delete spinner;
+		//delete spinner;
 		delete m_group;
-		delete m_ft_calib;
-		delete m_tf_listener;
+		//delete m_ft_calib;
+		//delete m_tf_listener;
 	}
 
 
@@ -225,36 +233,46 @@ public:
 
 		std::stringstream ss;
 		ss << m_pose_counter;
-		Eigen::Matrix<double, 6, 1> pose;
+		std::string pose_name;
+		//Eigen::Matrix<double, 6, 1> pose;
 
 		// either find poses from the parameter server
 		// poses should be in "pose%d" format (e.g. pose0, pose1, pose2 ...)
 		// and they should be float arrays of size 6
 		if(!m_random_poses)
 		{
-			if(!getPose("pose"+ss.str(), pose))
-			{
-				ROS_INFO("Finished group %s poses", m_group->getName().c_str());
-				m_finished = true;
-				return true;
-			}
+// 			if(!getNamePose("pose"+ss.str(), pose_name))
+// 			{
+// 				ROS_INFO("Finished group %s poses", m_group->getName().c_str());
+// 				m_finished = true;
+// 				return true;
+// 			}
 
-			geometry_msgs::Pose pose_;
-			pose_.position.x = pose(0);
-			pose_.position.y = pose(1);
-			pose_.position.z = pose(2);
+			// geometry_msgs::Pose pose_;
+			// pose_.position.x = pose(0);
+			// pose_.position.y = pose(1);
+			// pose_.position.z = pose(2);
 
-			tf::Quaternion q;
-			q.setRPY((double)pose(3), (double)pose(4), (double)pose(5));
+			// tf::Quaternion q;
+			// q.setRPY((double)pose(3), (double)pose(4), (double)pose(5));
 
-			tf::quaternionTFToMsg(q, pose_.orientation);
+			// tf::quaternionTFToMsg(q, pose_.orientation);
 
-			geometry_msgs::PoseStamped pose_stamped;
-			pose_stamped.pose = pose_;
-			pose_stamped.header.frame_id = m_poses_frame_id;
-			pose_stamped.header.stamp = ros::Time::now();
+			// geometry_msgs::PoseStamped pose_stamped;
+			// pose_stamped.pose = pose_;
+			// pose_stamped.header.frame_id = m_poses_frame_id;
+			// pose_stamped.header.stamp = ros::Time::now();
 
-			m_group->setPoseTarget(pose_stamped);
+			// m_group->setPoseTarget(pose_stamped);
+//                    m_group->setPlannerId("PRMstarkConfigDefault");
+// 		   ROS_INFO_STREAM("Arm state desidered:"+  pose_name);
+// 		   m_group->setNamedTarget(pose_name);
+// 			      // call the moves
+// 
+// 		   if( !(m_group->move()==moveit_msgs::MoveItErrorCodes::SUCCESS) )
+// 			{
+// 			 ROS_ERROR("An error occured during Moving Arm");
+// 			}
 
 		}
 		else // or execute random poses
@@ -274,9 +292,9 @@ public:
 		}
 
 
-		m_pose_counter++;
-		m_group->move();
-		ROS_INFO("Finished executing pose %d", m_pose_counter-1);
+		//m_pose_counter++;
+		//m_group->move();
+		//ROS_INFO("Finished executing pose %d", m_pose_counter-1);
 		return true;
 	}
 
@@ -306,6 +324,22 @@ public:
 			pose(i) = (double)PoseXmlRpc[i];
 
 		return true;
+	}
+    
+    // gets the next pose from the parameter server
+	// pose name is a string
+    bool getNamePose(const std::string &pose_param_name, std::string &pose_name)
+	{
+		if(n_.hasParam(pose_param_name))
+		{
+			n_.getParam(pose_param_name, pose_name);
+		}
+		else
+		{
+			ROS_WARN("Pose parameter %s not found", pose_param_name.c_str());
+			return false;
+		}
+        return true;
 	}
 
 	// prints out the pose (3-D positions) of the calibration frame at each of the positions
@@ -352,6 +386,7 @@ public:
 		command.clear();
 		command = std::string("rosparam dump ") + file + std::string(" /ft_calib");
 		std::system(command.c_str());
+		ROS_INFO("DATA SAVED");
 	}
 
     // saves the gravity and force-torque measurements to a file for postprocessing
@@ -405,6 +440,14 @@ public:
 		m_ft_avg.wrench.torque.y = -m_ft_avg.wrench.torque.y/(double)m_ft_counter;
 		m_ft_avg.wrench.torque.z = -m_ft_avg.wrench.torque.z/(double)m_ft_counter;
 
+/*	    m_ft_avg.wrench.force.x = m_ft_avg.wrench.force.x/(double)m_ft_counter;
+		m_ft_avg.wrench.force.y = m_ft_avg.wrench.force.y/(double)m_ft_counter;
+		m_ft_avg.wrench.force.z = m_ft_avg.wrench.force.z/(double)m_ft_counter;
+
+		m_ft_avg.wrench.torque.x = m_ft_avg.wrench.torque.x/(double)m_ft_counter;
+		m_ft_avg.wrench.torque.y = m_ft_avg.wrench.torque.y/(double)m_ft_counter;
+		m_ft_avg.wrench.torque.z = m_ft_avg.wrench.torque.z/(double)m_ft_counter;
+*/
 
 		m_ft_counter = 0;
 
@@ -425,6 +468,9 @@ public:
 		gravity.header.stamp = ros::Time();
 		gravity.header.frame_id = m_imu.header.frame_id;
 		gravity.vector = m_imu.linear_acceleration;
+		// gravity.vector.x = -gravity.vector.x;
+		// gravity.vector.y = -gravity.vector.y;
+		// gravity.vector.z = -gravity.vector.z;
 
 		geometry_msgs::Vector3Stamped gravity_ft_frame;
 
@@ -448,14 +494,40 @@ public:
 	{
 
 		Eigen::VectorXd ft_calib = m_ft_calib->getCalib();
-
-		mass = ft_calib(0);
+       // Eigen::Vector3d center_mass_position;
+		mass = ft_calib(0); // original
+		//mass = fabs(ft_calib(0));
 		if(mass<=0.0)
 		{
 			ROS_ERROR("Error in estimated mass (<= 0)");
-			//		return;
-		}
 
+            // COM_pos.x()=0.0;
+            // COM_pos.y()=0.0;
+            // COM_pos.z()=0.0;
+            // mass=0.0;
+            // f_bias(0)=0.0;
+            // f_bias(1)=0.0;
+            // f_bias(2)=0.0;
+            // t_bias(0)=0.0;
+            // t_bias(1)=0.0;
+            // t_bias(2)=0.0;
+			//		return;
+		 Eigen::Vector3d center_mass_position(ft_calib(1)/mass,
+				ft_calib(2)/mass,
+				ft_calib(3)/mass);
+
+		COM_pos = center_mass_position;
+
+		f_bias(0) = -ft_calib(4);
+		f_bias(1) = -ft_calib(5);
+		f_bias(2) = -ft_calib(6);
+		t_bias(0) = -ft_calib(7);
+		t_bias(1) = -ft_calib(8);
+		t_bias(2) = -ft_calib(9);
+			mass=fabs(mass);
+		}
+        else
+        {	
 		Eigen::Vector3d center_mass_position(ft_calib(1)/mass,
 				ft_calib(2)/mass,
 				ft_calib(3)/mass);
@@ -468,7 +540,7 @@ public:
 		t_bias(0) = -ft_calib(7);
 		t_bias(1) = -ft_calib(8);
 		t_bias(2) = -ft_calib(9);
-
+        }
 	}
 
 	void averageFTMeas()
@@ -499,9 +571,9 @@ public:
 
 private:
 
-	move_group_interface::MoveGroup *m_group;
+	//move_group_interface::MoveGroup *m_group;
 
-	unsigned int m_pose_counter;
+	//unsigned int m_pose_counter;
 	unsigned int m_ft_counter;
 
 	bool m_finished;
@@ -554,89 +626,117 @@ private:
 
 int main(int argc, char **argv)
 {
-	ros::init (argc, argv, "ft_calib_node");
-	ros::NodeHandle nh;
+ ros::init (argc, argv, "ft_calib_node");
+ ros::NodeHandle nh;
+ ros::Publisher vis_pub=nh.advertise<visualization_msgs::Marker>("/left_hand/cog_hand_server_",5);
+ FTCalibNode ft_calib_node;
+ if(!ft_calib_node.getROSParameters())
+ {
+   ft_calib_node.n_.shutdown();
+   ROS_ERROR("Error getting ROS parameters");
+  }
+  ft_calib_node.init();
+  /// main loop
+  double loop_rate_;
+  ft_calib_node.n_.param("loop_rate", loop_rate_, 100.0);
+  ros::Rate loop_rate(loop_rate_); // Hz
 
-	FTCalibNode ft_calib_node;
-	if(!ft_calib_node.getROSParameters())
-	{
-		ft_calib_node.n_.shutdown();
-		ROS_ERROR("Error getting ROS parameters");
+  // waiting time after end of each pose to take F/T measurements
+  double wait_time;
+  ft_calib_node.n_.param("wait_time", wait_time, 4.0);
+  bool ret = false;
+  unsigned int n_measurements = 0;
+  ros::Time t_end_move_arm = ros::Time::now();
+  while (ft_calib_node.n_.ok() && !ft_calib_node.finished())
+  {
+   //		Move the arm, then calibrate sensor
+  if(!ret)
+  {
+   ret = ft_calib_node.moveNextPose();
+   t_end_move_arm = ros::Time::now();
+  }
+ // average 100 measurements to calibrate the sensor in each position
+ else if ((ros::Time::now() - t_end_move_arm).toSec() > wait_time)
+ {
+   n_measurements++;
+   ft_calib_node.averageFTMeas(); // average over 100 measurements;
+   if(n_measurements==100)
+   {
+     ret = false;
+     n_measurements = 0;
+     ft_calib_node.addMeasurement(); // stacks up measurement matrices and FT measurementsa
+     double mass;
+     Eigen::Vector3d COM_pos;
+     Eigen::Vector3d f_bias;
+     Eigen::Vector3d t_bias;
+     ft_calib_node.getCalib(mass, COM_pos, f_bias, t_bias);
+     if(mass!=0.0)
+     {					
+        std::cout << "-------------------------------------------------------------" << std::endl;
+	std::cout << "Current calibration estimate:" << std::endl;
+	std::cout << std::endl << std::endl;
+        std::cout << "Mass: " << mass << std::endl << std::endl;
+        std::cout << "Center of mass position (relative to FT sensor frame):" << std::endl;
+	std::cout << "[" << COM_pos(0) << ", " << COM_pos(1) << ", " << COM_pos(2) << "]";
+	std::cout << std::endl << std::endl;
+        std::cout << "FT bias: " << std::endl;
+        std::cout << "[" << f_bias(0) << ", " << f_bias(1) << ", " << f_bias(2) << ", ";
+        std::cout << t_bias(0) << ", " << t_bias(1) << ", " << t_bias(2) << "]";
+        std::cout << std::endl << std::endl;
+        if(sqrt(pow(COM_pos(0),2)+pow(COM_pos(1),2)+pow(COM_pos(2),2))>0.35 || COM_pos(2)<0.0)
+	 {
+	   if(sqrt(pow(COM_pos(0),2)+pow(COM_pos(1),2)+pow(COM_pos(2),2))>0.3 ){ROS_ERROR("Cog too far from the hand");}
+	   if(COM_pos(2)<0.0){ROS_ERROR("Z flipped ! ");}
+           ft_calib_node.m_pose_counter=ft_calib_node.m_pose_counter-1;				
+	 }
+	 else
+         {	
+	   visualization_msgs::Marker position_hand_msgs;
+	   position_hand_msgs.header.frame_id = "left_measure";
+	   position_hand_msgs.header.stamp = ros::Time();
+	   position_hand_msgs.ns = "ft_calib_node";
+	   position_hand_msgs.id = 0;
+	   position_hand_msgs.type = visualization_msgs::Marker::SPHERE;
+	   position_hand_msgs.action = visualization_msgs::Marker::ADD;
+	   position_hand_msgs.pose.position.x = (double)COM_pos(0);
+	   position_hand_msgs.pose.position.y = (double)COM_pos(1);
+	   position_hand_msgs.pose.position.z = (double)COM_pos(2);
+	   position_hand_msgs.pose.orientation.x = 0.0;
+	   position_hand_msgs.pose.orientation.y = 0.0;
+	   position_hand_msgs.pose.orientation.z = 0.0;
+	   position_hand_msgs.pose.orientation.w = 1.0;
+	   position_hand_msgs.scale.x = 2*0.01;
+	   position_hand_msgs.scale.y = 2*0.01;
+	   position_hand_msgs.scale.z = 2*0.01;
+	   position_hand_msgs.color.a = 1.0; // Don't forget to set the alpha!
+	   position_hand_msgs.color.r = 0.5f;
+	   position_hand_msgs.color.g = 0.5f;
+	   position_hand_msgs.color.b = 0.0f;
+	   position_hand_msgs.lifetime = ros::Duration(10.0);
+	   vis_pub.publish(position_hand_msgs);
+	   ft_calib_node.saveCalibData();
+	  }
+               
+	std::cout << "-------------------------------------------------------------" << std::endl << std::endl << std::endl;
+       }
+       else
+       {
+         ROS_ERROR("Failed Calibration");
+	 ROS_INFO("Tring a new estimation");
+       }
 
-	}
-	ft_calib_node.init();
-
-	/// main loop
-	double loop_rate_;
-	ft_calib_node.n_.param("loop_rate", loop_rate_, 650.0);
-	ros::Rate loop_rate(loop_rate_); // Hz
-
-	// waiting time after end of each pose to take F/T measurements
-	double wait_time;
-	ft_calib_node.n_.param("wait_time", wait_time, 4.0);
-
-	bool ret = false;
-	unsigned int n_measurements = 0;
-
-	ros::Time t_end_move_arm = ros::Time::now();
-
-	while (ft_calib_node.n_.ok() && !ft_calib_node.finished())
-	{
-
-		//		Move the arm, then calibrate sensor
-		if(!ret)
-		{
-			ret = ft_calib_node.moveNextPose();
-			t_end_move_arm = ros::Time::now();
-		}
-
-		// average 100 measurements to calibrate the sensor in each position
-		else if ((ros::Time::now() - t_end_move_arm).toSec() > wait_time)
-		{
-			n_measurements++;
-			ft_calib_node.averageFTMeas(); // average over 100 measurements;
-
-			if(n_measurements==100)
-			{
-				ret = false;
-				n_measurements = 0;
-
-				ft_calib_node.addMeasurement(); // stacks up measurement matrices and FT measurementsa
-				double mass;
-				Eigen::Vector3d COM_pos;
-				Eigen::Vector3d f_bias;
-				Eigen::Vector3d t_bias;
-
-				ft_calib_node.getCalib(mass, COM_pos, f_bias, t_bias);
-				std::cout << "-------------------------------------------------------------" << std::endl;
-				std::cout << "Current calibration estimate:" << std::endl;
-				std::cout << std::endl << std::endl;
-
-				std::cout << "Mass: " << mass << std::endl << std::endl;
-
-				std::cout << "Center of mass position (relative to FT sensor frame):" << std::endl;
-				std::cout << "[" << COM_pos(0) << ", " << COM_pos(1) << ", " << COM_pos(2) << "]";
-				std::cout << std::endl << std::endl;
 
 
-				std::cout << "FT bias: " << std::endl;
-				std::cout << "[" << f_bias(0) << ", " << f_bias(1) << ", " << f_bias(2) << ", ";
-				std::cout << t_bias(0) << ", " << t_bias(1) << ", " << t_bias(2) << "]";
-				std::cout << std::endl << std::endl;
 
-
-				std::cout << "-------------------------------------------------------------" << std::endl << std::endl << std::endl;
-				ft_calib_node.saveCalibData();
-			}
-
-		}
-
-
-		ros::spinOnce();
-		loop_rate.sleep();
-	}
-
-	ft_calib_node.saveCalibData();
-	ros::shutdown();
+   }		
+   ros::spinOnce();
+   //ros::spin();
+   if(ft_calib_node.m_pose_counter>1){ft_calib_node.m_pose_counter=0;}
+   loop_rate.sleep();
+		
+  }
+ }
+	//ft_calib_node.saveCalibData();
+	//ros::shutdown();
 	return 0;
 }

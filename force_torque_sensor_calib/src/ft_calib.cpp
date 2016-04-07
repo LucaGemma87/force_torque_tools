@@ -115,8 +115,10 @@ Eigen::MatrixXd FTCalib::getMeasurementMatrix(const geometry_msgs::Vector3Stampe
 	KDL::Vector w = KDL::Vector::Zero();
 	KDL::Vector alpha = KDL::Vector::Zero();
 	KDL::Vector a = KDL::Vector::Zero();
+    
+    KDL::Vector g(gravity.vector.x, gravity.vector.y, gravity.vector.z); // original
 
-	KDL::Vector g(gravity.vector.x, gravity.vector.y, gravity.vector.z);
+	//KDL::Vector g(-gravity.vector.x, -gravity.vector.y, -gravity.vector.z);
 
 	Eigen::MatrixXd H;
 	H = Eigen::Matrix<double, 6, 10>::Zero();
