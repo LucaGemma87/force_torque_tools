@@ -68,8 +68,8 @@ public:
 		m_received_imu = false;
 
 		// subscribe to accelerometer topic and raw F/T sensor topic
-		topicSub_imu_ = n_.subscribe("imu", 1, &GravityCompensationNode::topicCallback_imu, this);
-		topicSub_ft_raw_ = n_.subscribe("ft_raw", 1, &GravityCompensationNode::topicCallback_ft_raw, this);
+		topicSub_imu_ = n_.subscribe("/ft_sensor/imu", 1, &GravityCompensationNode::topicCallback_imu, this);
+		topicSub_ft_raw_ = n_.subscribe("/ft_sensor/ft_raw", 1, &GravityCompensationNode::topicCallback_ft_raw, this);
 
 		/// implementation of topics to publish
 		std::string ns;
@@ -318,8 +318,8 @@ int main(int argc, char **argv)
 	// add a thread for publishing the gripper COM transform frame
 	boost::thread t_tf(boost::bind(&GravityCompensationNode::publish_gripper_com_tf, &g_comp_node));
 
-//	ros::AsyncSpinner s(2);
-//	s.start();
+	ros::AsyncSpinner s(2);
+	s.start();
 
 	while(ros::ok())
 	{

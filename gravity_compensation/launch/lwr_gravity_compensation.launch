@@ -2,8 +2,8 @@
 <launch>
 
   <arg name="node_name" default="gravity_compensation"/>
-  <arg name="calib_data_file" default="/home/pacman/Projects/catkin_ws/src/grasp_estimator/config/vito_left_arm_ft_calib_data.yaml"/>
-  <arg name="ft_raw" default="/lwr/lwr/ft_sensor_topic"/>
+  <arg name="calib_data_file" default="/home/pacman/Projects/catkin_ws/src/force_torque_tools/force_torque_sensor_calib/config/lwr_ft_calib_data.yaml"/>
+  <arg name="ft_raw" default="/lwr/ft_sensor_topic"/>
   <arg name="imu" default="/lwr/lwr/imu"/>
   <arg name="loop_rate" default="100.0"/>
   <arg name="ns" default="/ft_sensor"/>

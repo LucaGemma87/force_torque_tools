@@ -1,0 +1,5 @@
+bias: [0.05,0.05,0.05,0.05,0.05,0.05]
+gripper_com_frame_id: lwr_measure
+gripper_com_pose: [0.0, 0.0, 0.025, 0.0, 0.0, 0.0]
+gripper_mass: 0.455
+
